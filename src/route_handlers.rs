@@ -52,23 +52,41 @@ pub async fn get_current_chain_ws(
     ws.on_upgrade(|mut socket| async move {
         let mut rx = app_state.broadcaster.subscribe();
 
-        loop { // TODO: FIX BUG. WHEN CLIENT DISCONNECTED DONT SEND MESSAGE
-            match rx.recv().await {
-                Ok(new_block) => {
-                    if socket
-                        .send(Message::text(
-                            serde_json::to_string_pretty(&new_block).unwrap(),
-                        ))
-                        .await
-                        .is_err()
-                    {
-                        break;
+        loop {
+            tokio::select! {
+                msg = rx.recv() => {
+                    match msg {
+                        Ok(new_block) => {
+                        if socket
+                            .send(Message::text(
+                                serde_json::to_string_pretty(&new_block).unwrap(),
+                            ))
+                            .await
+                            .is_err()
+                        {
+                            break;
+                        }
+                    }
+                    Err(broadcast::error::RecvError::Lagged(skipped)) => {
+                        eprintln!("WebSocket skipped {} blocks", skipped);
+                    }
+                    Err(_) => break,
                     }
                 }
-                Err(broadcast::error::RecvError::Lagged(skipped)) => {
-                    eprintln!("WebSocket skipped {} blocks", skipped);
+
+                recv = socket.recv() => {
+                    match recv {
+                        Some(Ok(Message::Close(_))) | None => {
+                        break;
+                    }
+                    Some(Err(err)) => {
+                        eprintln!("WebSocket error: {}", err);
+                        break;
+                    }
+                    _ => ()
+
+                    }
                 }
-                Err(_) => break,
             }
         }
     })

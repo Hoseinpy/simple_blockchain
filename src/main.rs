@@ -25,7 +25,7 @@ const SERVER_PORT: &str = "3000";
 async fn main() -> Result<()> {
     // init db_path and blockchain and broadcaster
     let db_path = default_db_path();
-    let blockchain = Arc::new(RwLock::new(load_chain(&db_path, 4)?));
+    let blockchain = Arc::new(RwLock::new(load_chain(&db_path, 5)?));
     let (tx, _rx) = broadcast::channel(100);
 
     // init AppState
